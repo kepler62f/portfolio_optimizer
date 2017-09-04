@@ -1,40 +1,47 @@
-from django.shortcuts import render
-# from django.http import HttpResponse
+# from django.shortcuts import render
+from django.http import HttpResponse
+
+# from rest_framework.renderers import JSONRenderer
+from rest_framework.views import APIView
+# from rest_framework.response import Response
 
 import numpy as np
 import pandas as pd
 import portfolioopt as optimizer
 
+class OptimizerView(APIView):
+    """
+    An API endpoint for creating portfolios
+    """
+    def get(self, request, format=None):
 
-def index(request):
+        returns, cov_mat, avg_rets = optimizer.create_test_data()
 
-    returns, cov_mat, avg_rets = optimizer.create_test_data()
+        section("Example returns")
+        print(returns.head(10))
+        print("...")
 
-    section("Example returns")
-    print(returns.head(10))
-    print("...")
+        section("Average returns")
+        print(avg_rets)
 
-    section("Average returns")
-    print(avg_rets)
+        section("Covariance matrix")
+        print(cov_mat)
 
-    section("Covariance matrix")
-    print(cov_mat)
+        # have to keep target within domain of expected returns of assets
+        # else cvxopt/numpy will return domain error or convergence problem
+        target_ret = avg_rets.quantile(0.7)
+        weights = optimizer.markowitz_portfolio(cov_mat, avg_rets, 0.0049, allow_short=False, market_neutral=False)
 
-    # have to keep target within domain of expected returns of assets
-    # else cvxopt/numpy will return domain error or convergence problem
-    target_ret = avg_rets.quantile(0.7)
-    weights = optimizer.markowitz_portfolio(cov_mat, avg_rets, 0.0049, allow_short=False, market_neutral=False)
-
-    print_portfolio_info(returns, avg_rets, weights)
+        print_portfolio_info(returns, avg_rets, weights)
 
 
-    context = {
-        'avg_rets': avg_rets,
-        'cov_mat': cov_mat,
-        'weights': weights
-    }
+        # content = weights.to_json()
 
-    return render(request, 'create_portfolio/base.html', context)
+        content = "hello"
+
+        print(content)
+
+        return HttpResponse(content)
 
 
 
