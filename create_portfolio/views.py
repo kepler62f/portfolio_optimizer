@@ -21,27 +21,80 @@ class OptimizerView(APIView):
         # print first item
 
         # print(historical_data.values()[0])
-        sp500 = Historical_Data.filter(instrument="S&P 500", date="2017-06-30")
-        msci_europe = Historical_Data.filter(instrument="MSCI Europe", date="2017-06-30")
-        msci_em = Historical_Data.filter(instrument="MSCI Emerging Markets", date="2017-06-30")
-        bonds = Historical_Data.filter(instrument="ICE US Core Bond", date="2017-06-30")
-        cash = Historical_Data.filter(instrument="Effective Federal Funds Rate", date="2017-06-30")
-        gold = Historical_Data.filter(instrument="Gold Price: London Fixings, LBMA PM", date="2017-06-30")
 
-        print(sp500.values())
-        print(bonds.values())
-        print(cash.values())
-        print(gold.values())
-        print(msci_em.values())
-        print(msci_europe.values())
+        # get from DB table and store into individual asset queryset
+        cash = Historical_Data.filter(instrument="Effective Federal Funds Rate").values("date", "instrument_value")
+        sp500 = Historical_Data.filter(instrument="S&P 500").values("date", "instrument_value")
+        msci_europe = Historical_Data.filter(instrument="MSCI Europe").values("date", "instrument_value")
+        msci_em = Historical_Data.filter(instrument="MSCI Emerging Markets").values("date", "instrument_value")
+        bonds = Historical_Data.filter(instrument="ICE US Core Bond").values("date", "instrument_value")
+        gold = Historical_Data.filter(instrument="Gold Price: London Fixings, LBMA PM").values("date", "instrument_value")
+
+        # print(sp500.values())
+        # print(bonds.values())
+        # print(cash.values())
+        # print(gold.values())
+        # print(msci_em.values())
+        # print(msci_europe.values())
+
+        # convert queryset into pandas dataframes
+        cash_df = pd.DataFrame.from_records(cash)
+        sp500_df = pd.DataFrame.from_records(sp500)
+        msci_europe_df = pd.DataFrame.from_records(msci_europe)
+        msci_em_df = pd.DataFrame.from_records(msci_em)
+        bonds_df = pd.DataFrame.from_records(bonds)
+        gold_df = pd.DataFrame.from_records(gold)
+
+        # set date as dataframem index
+        cash_ts = cash_df.set_index("date")
+        sp500_ts = sp500_df.set_index("date")
+        europe_ts = msci_europe_df.set_index("date")
+        em_ts = msci_em_df.set_index("date")
+        bonds_ts = bonds_df.set_index("date")
+        gold_ts = gold_df.set_index("date")
+
+        # resample daily time series as monthly
+        # fill NA holes with next valid observation
+
+        mth_cash_ts = cash_ts.asfreq('M').fillna(method="backfill")
+        mth_sp500_ts = sp500_ts.asfreq('M').fillna(method="backfill")
+        mth_europe_ts = europe_ts.asfreq('M').fillna(method="backfill")
+        mth_em_ts = em_ts.asfreq('M').fillna(method="backfill")
+        mth_bonds_ts = bonds_ts.asfreq('M').fillna(method="backfill")
+        mth_gold_ts = gold_ts.asfreq('M').fillna(method="backfill")
+
+        # filter into 5-year (60-mth) monthly return series ending Jun 30, 2017
+        cash_returns = mth_cash_ts["2011-12-31":"2017-06-30"]
+        cash_returns.drop(cash_returns.index[0], inplace=True)
+        sp500_returns = mth_sp500_ts["2011-12-31":"2017-06-30"].pct_change()
+        sp500_returns.drop(sp500_returns.index[0], inplace=True)
+        europe_returns = mth_europe_ts["2011-12-31":"2017-06-30"].pct_change()
+        europe_returns.drop(europe_returns.index[0], inplace=True)
+        em_returns = mth_em_ts["2011-12-31":"2017-06-30"].pct_change()
+        em_returns.drop(em_returns.index[0], inplace=True)
+        bonds_returns = mth_bonds_ts["2011-12-31":"2017-06-30"].pct_change()
+        bonds_returns.drop(bonds_returns.index[0], inplace=True)
+        gold_returns = mth_gold_ts["2011-12-31":"2017-06-30"].pct_change()
+        gold_returns.drop(gold_returns.index[0], inplace=True)
 
         # data = []
         # dates = []
         # assets = []
         #
 
-        # for key, value in request.GET.items():
-        #     if (key == "addSP500") and (value)
+        for key, value in request.GET.items():
+            if (key == "addedCash") and (value == "true"):
+                print("add cash")
+            if (key == "addedSP500") and (value == "true"):
+                print("add sp500")
+            if (key == "addedEurope") and (value == "true"):
+                print("add Europe")
+            if (key == "addedEM") and (value == "true"):
+                print("add EM")
+            if (key == "addedBonds") and (value == "true"):
+                print("add Bonds")
+            if (key == "addedGold") and (value == "true"):
+                print("add Gold")
 
 
 
@@ -60,42 +113,39 @@ class OptimizerView(APIView):
 
         returns, cov_mat, avg_rets = optimizer.create_test_data()
 
-        section("Example returns")
-        print(returns.head(10))
-        print("...")
-
-        section("Average returns")
-        print(avg_rets)
-
-        section("Covariance matrix")
-        print(cov_mat)
+        # section("Example returns")
+        # print(returns.head(10))
+        # print("...")
+        #
+        # section("Average returns")
+        # print(avg_rets)
+        #
+        # section("Covariance matrix")
+        # print(cov_mat)
 
         # have to keep target within domain of expected returns of assets
         # else cvxopt/numpy will return domain error or convergence problem
         target_ret = avg_rets.quantile(0.7)
         weights = optimizer.markowitz_portfolio(cov_mat, avg_rets, 0.0049, allow_short=False, market_neutral=False)
 
-        print_portfolio_info(returns, avg_rets, weights)
+        # print_portfolio_info(returns, avg_rets, weights)
 
 
 
         content = weights.to_json()
 
-        print(content)
+        # print(content)
         # print("req: ", request.GET.urlencode()) # get("addedGold")
         # print("type: ", type(request))
 
-        for key, value in request.GET.items():
+        # for key, value in request.GET.items():
             # print("%s %s" % (key, value))
-            print(key, value)
+            # print(key, value)
 
         return Response(content)
 
 
 
-
-# daily to monthly
-# https://www.packtpub.com/mapt/book/big_data_and_business_intelligence/9781787123137/15/ch15lvl1sec128/resampling-data-from-daily-to-monthly-returns
 
 
 ##################################
