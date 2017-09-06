@@ -103,103 +103,41 @@ class OptimizerView(APIView):
 
         for key, value in request.GET.items():
             if (key == "addedCash") and (value == "true"):
-                # assets.append("Cash")
-                # print(assets)
                 frames.append(cash_returns)
             if (key == "addedSP500") and (value == "true"):
-                # assets.append("S&P 500")
-                # print(assets)
                 frames.append(sp500_returns)
             if (key == "addedEurope") and (value == "true"):
-                # assets.append("Europe")
-                # print(assets)
                 frames.append(europe_returns)
             if (key == "addedEM") and (value == "true"):
-                # assets.append("MSCI Emerging Markets")
-                # print(assets)
                 frames.append(em_returns)
             if (key == "addedBonds") and (value == "true"):
-                # assets.append("Bonds")
-                # print(assets)
                 frames.append(bonds_returns)
             if (key == "addedGold") and (value == "true"):
-                # assets.append("Gold")
-                # print(assets)
                 frames.append(gold_returns)
 
         if (len(frames) > 0):
             returns = pd.concat(frames, axis=1)
-            print(returns)
-
-
-
-        # avg_rets = returns.mean()
-        # cov_mat = returns.cov()
-
-
-
-
-
-
-
-
-
-
-
-
-        returns, cov_mat, avg_rets = optimizer.create_test_data()
-
-        # section("Example returns")
-        # print(returns.head(10))
-        # print("...")
-        #
-        # section("Average returns")
-        # print(avg_rets)
-        #
-        # section("Covariance matrix")
-        # print(cov_mat)
-
-        # have to keep target within domain of expected returns of assets
-        # else cvxopt/numpy will return domain error or convergence problem
-        target_ret = avg_rets.quantile(0.7)
-        weights = optimizer.markowitz_portfolio(cov_mat, avg_rets, 0.0049, allow_short=False, market_neutral=False)
-
-        # print_portfolio_info(returns, avg_rets, weights)
-
-
-
-        content = weights.to_json()
-
-        # print(content)
-        # print("req: ", request.GET.urlencode()) # get("addedGold")
-        # print("type: ", type(request))
-
-        # for key, value in request.GET.items():
-            # print("%s %s" % (key, value))
-            # print(key, value)
-
-        return Response(content)
+            # print(returns)
+            avg_rets = returns.mean()
+            cov_mat = returns.cov()
+            target_ret = avg_rets.quantile(0.7) # ASSUMPTION
+            weights = optimizer.markowitz_portfolio(cov_mat, avg_rets, target_ret, allow_short=False, market_neutral=False)
+            ret = (weights * avg_rets).sum()
+            std = (weights * returns).sum(1).std()
+            sharpe = ret / std
+            content = {
+                "average_returns": avg_rets.to_json(),
+                "covariance_matrix": cov_mat.to_json(),
+                "target_return": target_ret,
+                "optimal_weights": weights.to_json(),
+                "expected_return": ret,
+                "expected_variance": std**2,
+                "sharpe_ratio": sharpe
+            }
+            return Response(content)
+        else:
+            return Response("No asset class selected")
 
 
 
 
-
-##################################
-### Auxiliary Functions
-##################################
-
-def section(caption):
-    print('\n\n' + str(caption))
-    print('-' * len(caption))
-
-def print_portfolio_info(returns, avg_rets, weights):
-    """
-    Print information on expected portfolio performance.
-    """
-    ret = (weights * avg_rets).sum()
-    std = (weights * returns).sum(1).std()
-    sharpe = ret / std
-    print("Optimal weights:\n{}\n".format(weights))
-    print("Expected return:   {}".format(ret))
-    print("Expected variance: {}".format(std**2))
-    print("Expected Sharpe:   {}".format(sharpe))
